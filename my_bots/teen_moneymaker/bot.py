@@ -199,10 +199,6 @@ def calculate_bluff_amount(current_bet: int, score: float, ante: int):
     # Kid Moneymaker will bluff linearly
     return current_bet + max(10, ante, (1 - score) * current_bet)
 
-def wildcard() -> bool:
-    '''1% chance to return true'''
-    return random.random() < 0.01
-
 def decide(game_state: dict) -> dict:
     """
     game_state (the most useful keys):
@@ -249,10 +245,10 @@ def decide(game_state: dict) -> dict:
             raiseby = calculate_raise_amount(current_bet, ante)
             
             # Fold if we have a very bad hand
-            if(score >= 0.75):
+            if(score > 0.5 or not game_state.get("can_check")):
+            
                 return {"action": "call"}
-            if(score < 0.5):
-                return {"action": "check"}
+            return {"action": "check"}
         
         raiseby = calculate_raise_amount(current_bet, ante)
         if(is_small_blind):
@@ -266,26 +262,20 @@ def decide(game_state: dict) -> dict:
         score: float = hand_score(game_state)
         raiseby = calculate_raise_amount(current_bet, ante)
         
-        # Wildcard
-        if(wildcard()): return {"action": "all_in"}
-        
-        # Fold if we have a very bad hand
-        # if(score < 0.1):
-        #     return {"action": "fold"}
-        
-        if(score > 0.94):
+        if(score > 0.9):
             # We have an exceptionally good hand, go all in 
             return {"action": "all_in"}
-        elif(score > 0.5 and score < 0.75):
+
+        if(score > 0.5):
             # We have a very good hand, raise it a bit more than the current bet.
             return {"action": "raise", "amount": raiseby}
-        elif(score >= 0.75):
+    
+        if(score > 0.2):
             # We have a decent hand, call the current bet.
             return {"action": "call"}
         
-        # Otherwise, check
-        if(game_state.get("can_check")):
-            return {"action": "check"}
+        # Fold if we have a very bad hand
+        return {"action": "fold"}
 
     # Fold in all other cases
     return {"action": "fold"}
