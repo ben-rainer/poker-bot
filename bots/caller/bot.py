@@ -2,9 +2,6 @@
 
 
 def decide(game_state: dict) -> dict:
-
-    print("I got a big dict")
-
     if game_state.get("can_check"):
         return {"action": "check"}
     return {"action": "call"}
