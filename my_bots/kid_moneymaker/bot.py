@@ -1,5 +1,6 @@
 """
-A very basic poker bot, blindly figuring out life
+A very basic poker bot, blindly figuring out life.
+Plays very honestly, and does not 
 
 The most whimsy to date of any Moneymaker model
 
@@ -32,7 +33,6 @@ CARDS are strings like "As" (ace of spades) or "Td" (ten of diamonds).
 
 import random  # noqa: F401  (seeded per match, so a seeded match replays exactly)
 
-
 # Helper methods
 def hand_score(hand: list) -> float:
     '''Determine how good a hand is.'''
@@ -43,8 +43,12 @@ def hand_score(hand: list) -> float:
 def calculate_raise_amount(current_bet: int, ante: int) -> int:
     '''Calculate the amount we can bet during a raise action.'''
     
-    # Kid Moneymaker will only raise 10 each time, regardless
-    return min(current_bet + 10, ante)
+    # Kid Moneymaker will raise linearly
+    return current_bet + max(10, (ante / 2))
+
+def wildcard() -> bool:
+    '''1% chance to return true'''
+    return random.random() < 0.01
 
 def decide(game_state: dict) -> dict:
     """
@@ -85,20 +89,31 @@ def decide(game_state: dict) -> dict:
         return {"action": "check"}
 
     elif game_state.get("street") == "preflop":
-        # Must call, raise or fold
+        # Must call, raise or check
+        
+        if(not is_small_blind and not is_big_blind):
+            score: float = hand_score(game_state.get("your_cards"))
+            raiseby = calculate_raise_amount(current_bet, ante)
+            
+            if(score >= 0.75):
+                return {"action": "call"}
+            if(score < 0.5):
+                return {"action": "check"}
         
         raiseby = calculate_raise_amount(current_bet, ante)
-        # If blind, bet the minimum
         if(is_small_blind):
-            raiseby = blinds.get("sb")
+            raiseby = blinds.get("sb") + ante
         elif(is_big_blind):
-            raiseby = blinds.get("bb")
+            raiseby = blinds.get("bb") + ante
         
         return {"action": "raise", "amount": raiseby}
 
     else:
         score: float = hand_score(game_state.get("your_cards"))
         raiseby = calculate_raise_amount(current_bet, ante)
+        
+        # Wildcard
+        if(wildcard()): return {"action": "all_in"}
         
         if(score > 0.94):
             # We have an exceptionally good hand, go all in 
