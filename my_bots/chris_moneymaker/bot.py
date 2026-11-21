@@ -49,6 +49,6 @@ def decide(game_state: dict) -> dict:
 
     if game_state.get("can_check"): return {"action": "check"}
 
-    if simulate_win_odds(game_state, 1000) > 0.5: return {"action": "all_in"}
+    if simulate_win_odds(game_state, 1000) > 0.50: return {"action": "all_in"}
 
     return {"action": "fold"}
