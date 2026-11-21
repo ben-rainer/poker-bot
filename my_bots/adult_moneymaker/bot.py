@@ -13,6 +13,7 @@ from collections import Counter
 
 
 LAG = 1500
+opponent_is_always_going_all_in = False
 
 # ========== Winner ========== #
 
@@ -225,6 +226,18 @@ def decide(game_state: dict) -> dict:
     is_big_blind = (seat == bb_seat)
     is_button = (seat == button_seat)
     
+    # determine if opponent is going all in
+    opponent_is_always_going_all_in = False
+    i = 0
+    for s in game_state.get("match_action_log"):
+        if s.get("action") == "all_in":
+            i += 1
+        else:
+            break
+        
+    if i == 3:
+        opponent_is_always_going_all_in = True
+    
     ante = blinds.get("ante") or 0
     
     if game_state.get("type") == "warmup":     # one call before hand 1; load things here if you like
@@ -237,10 +250,10 @@ def decide(game_state: dict) -> dict:
             score: float = hand_score(game_state)
             raiseby = max(calculate_raise_amount(current_bet, ante), ante)
             
-            # Fold if we have a very bad hand
+            # Check if we have a very bad hand, otherwise call
             if(score > 0.5 or not game_state.get("can_check")):
-            
                 return {"action": "call"}
+            
             return {"action": "check"}
         
         raiseby = calculate_raise_amount(current_bet, ante)
@@ -255,17 +268,24 @@ def decide(game_state: dict) -> dict:
         score: float = hand_score(game_state)
         raiseby = calculate_raise_amount(current_bet, ante)
         
-        if(score > 0.9):
-            # We have an exceptionally good hand, go all in 
-            return {"action": "all_in"}
-
-        if(score > 0.5):
-            # We have a very good hand, raise it a bit more than the current bet.
-            return {"action": "raise", "amount": raiseby}
-    
-        if(score > 0.2):
-            # We have a decent hand, call the current bet.
-            return {"action": "call"}
+        if(opponent_is_always_going_all_in):
+            if(score > 0.9):
+                return {"action": "all_in"}
+            else:
+                return {"action": "fold"}
+        
+        else:
+            if(score > 0.5):
+                # We have a good hand, raise.
+                return {"action": "raise", "amount": raiseby}
+        
+            if(score > 0.7):
+                # We have an exceptionally good hand, go all in 
+                return {"action": "all_in"}
+        
+            if(score > 0.2):
+                # We have a decent hand, call the current bet.
+                return {"action": "call"}
         
         # Fold if we have a very bad hand
         return {"action": "fold"}
