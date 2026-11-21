@@ -56,17 +56,17 @@ def decide(game_state: dict) -> dict:
     if game_state.get("type") == "warmup":     # one call before hand 1; load things here if you like
         return {"action": "check"}
 
-    # ── Your strategy goes here. This example is deliberately simple. ──────────
-    cards = game_state["your_cards"]
-    pot = game_state["pot"]
-    owed = game_state["amount_owed"]
-
-    ranks = [c[0] for c in cards]
-    if ranks[0] == ranks[1] and ranks[0] in "AKQJ":           # big pocket pair: raise
-        raise_to = max(game_state["min_raise_to"], game_state["current_bet"] + pot)
-        return {"action": "raise", "amount": raise_to}
-    if game_state["can_check"]:
+    elif game_state.get("street") == "preflop":
         return {"action": "check"}
-    if owed <= pot * 0.25:                                     # cheap to continue: call
-        return {"action": "call"}
+
+    elif game_state.get("street") == "flop":
+        return {"action": "check"}
+
+    elif game_state.get("street") == "turn":
+        return {"action": "check"}
+    
+    elif game_state.get("street") == "river":
+        return {"action": "check"}
+
+    # Fold as a backup
     return {"action": "fold"}
