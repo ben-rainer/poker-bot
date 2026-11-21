@@ -189,9 +189,11 @@ def hand_score(game_state:dict) -> float:
 
 def calculate_raise_amount(current_bet: int, ante: int) -> int:
     '''Calculate the amount we can bet during a raise action.'''
+
+    return current_bet + 10
     
     # Kid Moneymaker will raise linearly
-    return current_bet + max(10, (ante / 2))
+    #return current_bet + max(10, (ante / 2))
 
 def calculate_bluff_amount(current_bet: int, score: float, ante: int):
     '''Calculate the amount we can bet during a bluff action.'''
@@ -262,15 +264,15 @@ def decide(game_state: dict) -> dict:
         score: float = hand_score(game_state)
         raiseby = calculate_raise_amount(current_bet, ante)
         
-        if(score > 0.9):
+        if(score > 0.6):
             # We have an exceptionally good hand, go all in 
             return {"action": "all_in"}
 
-        if(score > 0.5):
+        #if(score > 0.5):
             # We have a very good hand, raise it a bit more than the current bet.
-            return {"action": "raise", "amount": raiseby}
+            #return {"action": "raise", "amount": raiseby}
     
-        if(score > 0.2):
+        if(score > 0.3):
             # We have a decent hand, call the current bet.
             return {"action": "call"}
         

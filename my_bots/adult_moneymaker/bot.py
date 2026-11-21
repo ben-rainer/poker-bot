@@ -1,10 +1,22 @@
+"""
+The next generation Moneymaker model
+
+by Ben Rainer and Nico Couton
+"""
+
+"""
+  - Check your bot before submitting:  make validate BOT=my_bots/<your_team>
+"""
 
 import random
 from collections import Counter
 
-LAG = 1000
+
+LAG = 1500
+opponent_is_always_going_all_in = False
 
 # ========== Winner ========== #
+
 
 _RANK_VALUE = {r: v for v, r in enumerate("23456789TJQKA", start=2)}  # 2..14
 
@@ -141,10 +153,13 @@ def complete_river(game_state: dict, opponent_hand: list[str]) -> list[str]:
     return river
 
 
+
+
 def simulate_win_odds(game_state: dict, number_of_games: int) -> float:
 
     wins = 0
     losses = 0
+    draws = 0
 
     for i in range(number_of_games):
 
@@ -155,18 +170,27 @@ def simulate_win_odds(game_state: dict, number_of_games: int) -> float:
 
         if winner == True: wins += 1
         if winner == False: losses += 1
+        if winner == None: draws += 1
 
-    return wins / number_of_games
-
+    return (wins + draws) / number_of_games
 
 
 # ========== Main ========== #
 
 
+# Helper methods
+def hand_score(game_state:dict) -> float:
+    '''Determine how good a hand is.'''
+    
+    return simulate_win_odds(game_state, LAG)
+
+def calculate_raise_amount(current_bet: int, ante: int) -> int:
+    '''Calculate the amount we can bet during a raise action.'''
+    
+    # Chris Moneymaker will raise linearly
+    return current_bet + max(10, (ante / 2))
 
 def decide(game_state: dict) -> dict:
-
-
     """
     game_state (the most useful keys):
       your_cards        ["Ah", "Kh"]
@@ -186,39 +210,82 @@ def decide(game_state: dict) -> dict:
     a JSON-serialisable "debug" value to what you return, e.g.
     {"action": "call", "debug": {"equity": 0.4}}. Run with: python3 play.py --show
     """
-
-
+    current_bet = game_state.get("current_bet") or 10
+    
+    # determine if blind
+    seat = game_state.get("seat_to_act")
+    sb_seat = game_state.get("sb_seat")
+    bb_seat = game_state.get("bb_seat")
+    button_seat = game_state.get("button_seat")
+    blinds = game_state.get("blinds") or {}
+    
+    is_small_blind = (seat == sb_seat)
+    is_big_blind = (seat == bb_seat)
+    is_button = (seat == button_seat)
+    
+    # determine if opponent is going all in
+    opponent_is_always_going_all_in = False
+    i = 0
+    for s in game_state.get("match_action_log"):
+        if s.get("action") == "all_in":
+            i += 1
+        else:
+            break
+        
+    if i == 3:
+        opponent_is_always_going_all_in = True
+    
+    ante = blinds.get("ante") or 0
+    
     if game_state.get("type") == "warmup":     # one call before hand 1; load things here if you like
         return {"action": "check"}
 
-    # ── Your strategy goes here. This example is deliberately simple. ──────────
-
-
-    cards = game_state["your_cards"]
-    pot = game_state["pot"]
-    owed = game_state["amount_owed"]
-
-    ranks = [c[0] for c in cards]
-
-
-    if ranks[0] == ranks[1] and ranks[0] in "AKQJ":           # big pocket pair: raise
-
-
-        raise_to = max(game_state["min_raise_to"], game_state["current_bet"] + pot)
-        return {"action": "raise", "amount": raise_to}
-
-
-    if game_state["can_check"]:
-
-        return {"action": "check"}
-
-    if owed <= pot * 0.25:    
-                                         # cheap to continue: call
-        return {"action": "call"}
+    elif game_state.get("street") == "preflop":
+        # Must call, raise or check
         
+        if(not is_small_blind and not is_big_blind):
+            score: float = hand_score(game_state)
+            raiseby = max(calculate_raise_amount(current_bet, ante), ante)
+            
+            # Check if we have a very bad hand, otherwise call
+            if(score > 0.5 or not game_state.get("can_check")):
+                return {"action": "call"}
+            
+            return {"action": "check"}
+        
+        raiseby = calculate_raise_amount(current_bet, ante)
+        if(is_small_blind):
+            raiseby = blinds.get("sb") + ante
+        elif(is_big_blind):
+            raiseby = blinds.get("bb") + ante
+        
+        return {"action": "raise", "amount": raiseby}
+
+    else:
+        score: float = hand_score(game_state)
+        raiseby = calculate_raise_amount(current_bet, ante)
+        
+        if(opponent_is_always_going_all_in):
+            if(score > 0.9):
+                return {"action": "all_in"}
+            else:
+                return {"action": "fold"}
+        
+        else:
+            if(score > 0.5):
+                # We have a good hand, raise.
+                return {"action": "raise", "amount": raiseby}
+        
+            if(score > 0.7):
+                # We have an exceptionally good hand, go all in 
+                return {"action": "all_in"}
+        
+            if(score > 0.2):
+                # We have a decent hand, call the current bet.
+                return {"action": "call"}
+        
+        # Fold if we have a very bad hand
+        return {"action": "fold"}
+
+    # Fold in all other cases
     return {"action": "fold"}
-
-
-
-
-# ========== Odds Calculation ========== #
