@@ -98,6 +98,7 @@ def decide(game_state: dict) -> dict:
 
     else:
         score: float = hand_score(game_state.get("your_cards"))
+        raiseby = calculate_raise_amount(current_bet, ante)
         
         if(score > 0.94):
             # We have an exceptionally good hand, go all in 
