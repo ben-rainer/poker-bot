@@ -5,43 +5,32 @@ by Ben Rainer and Nico Couton
 """
 
 """
-Bot template. Copy this folder to my_bots/<your_team>/ and write decide().
-
-  - decide() is called once per decision and has 2 seconds to return, or your
-    bot folds. Crashes and invalid actions also fold; your bot stays in the game.
-  - You may use the Python 3.10 standard library, eval7, numpy, scipy, treys
-    and scikit-learn. Nothing else is installed in the sandbox.
-  - No network, no file writes, no subprocesses, no eval/exec. You may read
-    your own data/ folder, at import time only.
   - Check your bot before submitting:  make validate BOT=my_bots/<your_team>
-
-The full list of what decide() receives is in the README ("What your bot
-sees"); the most useful keys are summarised below.
-
-RETURN FORMAT:
-  {"action": "fold"}
-  {"action": "check"}                       # only when can_check is True
-  {"action": "call"}
-  {"action": "raise", "amount": 1200}       # amount = your TOTAL bet this street
-  {"action": "all_in"}
-
-CARDS are strings like "As" (ace of spades) or "Td" (ten of diamonds).
 """
 
 import random  # noqa: F401  (seeded per match, so a seeded match replays exactly)
+from score import simulate_win_odds
 
 # Helper methods
-def hand_score(hand: list) -> float:
+def hand_score(game_state:dict) -> float:
     '''Determine how good a hand is.'''
     
+    return simulate_win_odds(game_state, 10000)
+    
     # Kid Moneymaker does it randomly
-    return random.randrange(1, 100) / 100
+    #return random.randrange(1, 100) / 100
 
 def calculate_raise_amount(current_bet: int, ante: int) -> int:
     '''Calculate the amount we can bet during a raise action.'''
     
     # Kid Moneymaker will raise linearly
     return current_bet + max(10, (ante / 2))
+
+def calculate_bluff_amount(current_bet: int, score: float, ante: int):
+    '''Calculate the amount we can bet during a bluff action.'''
+    
+    # Kid Moneymaker will bluff linearly
+    return current_bet + max(10, ante, (1 - score) * current_bet)
 
 def wildcard() -> bool:
     '''1% chance to return true'''
@@ -89,9 +78,10 @@ def decide(game_state: dict) -> dict:
         # Must call, raise or check
         
         if(not is_small_blind and not is_big_blind):
-            score: float = hand_score(game_state.get("your_cards"))
+            score: float = hand_score(game_state)
             raiseby = calculate_raise_amount(current_bet, ante)
             
+            # Fold if we have a very bad hand
             if(score >= 0.75):
                 return {"action": "call"}
             if(score < 0.5):
@@ -106,11 +96,15 @@ def decide(game_state: dict) -> dict:
         return {"action": "raise", "amount": raiseby}
 
     else:
-        score: float = hand_score(game_state.get("your_cards"))
+        score: float = hand_score(game_state)
         raiseby = calculate_raise_amount(current_bet, ante)
         
         # Wildcard
         if(wildcard()): return {"action": "all_in"}
+        
+        # Fold if we have a very bad hand
+        # if(score < 0.1):
+        #     return {"action": "fold"}
         
         if(score > 0.94):
             # We have an exceptionally good hand, go all in 
